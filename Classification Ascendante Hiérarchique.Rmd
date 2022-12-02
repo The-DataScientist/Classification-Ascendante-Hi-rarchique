@@ -1,0 +1,150 @@
+---
+title: "Classification Ascendante Hiérarchique"
+author: "KHALIL Hajji   ++ Amir Karouia "
+date: "02/10/2022"
+output: html_document
+---
+
+## 1. Importation des données :
+```{r}
+library(readxl)
+data25 <- read_excel("D:/KHALIL/ESSAI/3 éme/7) Datamining/TP/TP3/data25.xlsx")
+data25
+data26 <- read_excel("D:/KHALIL/ESSAI/3 éme/7) Datamining/TP/TP3/data26.xlsx")
+data26
+```
+
+```{r}
+library(cluster)
+library(FactoMineR) #dedicated to multivariate Exploratory Data Analysis
+X=data25[,1:12]
+X
+library(dendextend) #package for creating and comparing visually appealing tree diagrams
+```
+##  2. Classification ascendante hiérarchique des données (CAH)  :
+On cherche à ce que les individus regroupés au sein d'une même classe (homogénéité intra-classe) soient le plus semblables possibles tandis que les classes soient le plus dissemblables (hétérogénéité inter-classe).
+
+### Avec agnes :
+L'algorithme d'agnes construit une hiérarchie de clusterings. Au début, chaque observation est un petit cluster en soi. Les clusters sont fusionnés jusqu'à ce qu'il ne reste qu'un seul grand cluster qui contient toutes les observations. A chaque étape, les deux clusters les plus proches sont combinés pour former un cluster plus grand.
+```{r}
+classif<-agnes(data26, method="ward")
+plot(classif,xlab="individu",main="")
+title("Dendrogramme")
+```
+
+
+```{r}
+library(factoextra) #Provides PCA, CA, MCA functions
+fviz_dend(classif, k = 4, show_labels = FALSE, rect = TRUE) #Draws easily beautiful dendrograms
+```
+### Avec hclust :
+
+```{r}
+d=dist(scale(X),method = "euclidian") #scale() centers and/or scales the columns of a numeric matrix.
+hc1=hclust(d,method = "ward.D2") # method : or complete or average
+hc2=hclust(d,method = "complete")
+hc3=hclust(d,method = "average")
+plot(hc1)
+plot(hc2)
+plot(hc3)
+plot(hc1, hang = -1)
+```
+##### Output de hclust :
+
+```{r}
+hc1$height
+```
+The hight indicates the degree of difference between branches. The longer the line, the greater the difference.
+
+```{r}
+hc1$merge
+```
+Which means everything started by joining observations 10 and 34, then observations 4 and 27, etc. Then 11 and step 1 (i.e., joining 11, 10 and 34), etc. 
+
+```{r}
+hc1$order
+```
+
+## 3. Détermination de la meilleure partition :
+```{r}
+classif2<-as.hclust(classif) #Converts objects from other hierarchical clustering functions to class "hclust".
+plot((classif2$height), type="h", ylab="Heights")
+rect.hclust(hc1,k=4) #Draws rectangles around the branches of a dendrogram highlighting the corresponding clusters. First the dendrogram is cut at a certain level, then a rectangle is drawn around selected branches.
+#Cut the dendrogram such that either exactly k clusters are produced or by cutting at height h.
+```
+
+
+```{r}
+classes<-cutree(classif2,k=4) #Cuts a dendrogram tree into several groups by specifying the desired number of clusters k(s), or cut height(s).
+classes
+```
+### Visualisation de l’effet coude:
+consiste à repérer l'endroit à partir duquel le pourcentage d'inertie diminue beaucoup plus lentement lorsque l'on parcourt le diagramme des éboulis de gauche à droite
+```{r}
+plot(1:40,hc1$height[40:1],type="b")
+inertie = sort(hc1$height,decreasing=TRUE)
+plot(inertie[1:20],type="s",xlab="Nombre de classes", ylab="Inertie")
+```
+On remarque d'après critère de coude(critère de Kaiser) on a 2 classes.
+
+## 4. Description des classes :
+```{r}
+decathlon.comp<-cbind.data.frame(data25, as.factor(classes))
+colnames(decathlon.comp)[15]<-"Classe"
+head(decathlon.comp)
+```
+
+### Description des classes avec la fonction catdes :
+Description of the categories of one factor by categorical variables and/or by quantitative variables
+```{r}
+res.cat=catdes(decathlon.comp, num.var=15)
+res.cat
+```
+## 5. Représentation des classes sur un plan factoriel :
+```{r}
+res.pca<-PCA(decathlon.comp,quali.sup=15)
+plot(res.pca,choix="ind",habillage=11)
+
+```
+## 6. Representation des classes sur un plan factoriel : la fonction HCPC
+```{r}
+#res.pca<-PCA(data25, quanti.sup=11:12, ncp=Inf, graph=F, quali.sup=13)
+#res.hcpc<-HCPC(res.pca,consol=FALSE)
+res.hcpc<-HCPC(res.pca,consol=FALSE,nb.clust=3)
+```
+
+
+## 7. Statistique descriptives sur res.hcpc 
+
+```{r}
+res.hcpc$desc.var
+res.hcpc$desc.axes
+res.hcpc$desc.ind
+```
+
+
+```{r}
+library(NbClust)
+res_NbClust<-NbClust(scale(X), min.nc = 2, max.nc = 10, index="silhouette",method = "kmeans")
+#proposes to user the best clustering scheme from the different results
+#Ward.D2 method minimizes the total within-cluster variance. 
+#
+res_NbClust$All.index #Values of indices for each partition of the dataset obtained with a number of clusters between min.nc and max.nc.
+```
+
+
+```{r}
+km = kmeans(scale(X), 4, iter=20)
+km$cluster
+```
+
+
+```{r}
+table(classes,km)
+```
+
+
+```{r}
+library(klaR)
+kmodes(data25,modes=5, iter.max = 10)
+```
